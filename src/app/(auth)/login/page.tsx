@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2, FileText, Sparkles } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -31,6 +29,7 @@ export default function LoginPage() {
 
       if (!response.ok) {
         setError(data.error || "Login failed");
+        setIsLoading(false);
         return;
       }
 
@@ -38,11 +37,10 @@ export default function LoginPage() {
       localStorage.setItem("bearer_token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // Use window.location for redirect (works better in iframe)
-      window.location.href = "/dashboard";
+      // Force full page navigation to dashboard
+      window.location.replace("/dashboard");
     } catch {
       setError("An error occurred. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };
