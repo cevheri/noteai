@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   FileText,
@@ -80,6 +80,9 @@ export default function DashboardPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [aiSelectedText, setAISelectedText] = useState("");
+  
+  // Track if initial load happened
+  const initialLoadDone = useRef(false);
 
   // Check authentication and get user data
   useEffect(() => {
@@ -122,27 +125,27 @@ export default function DashboardPage() {
     verifyToken();
   }, [router]);
 
-  // Fetch notes based on filter
-  const fetchNotes = useCallback(async () => {
+  // Fetch notes - stable function that reads current state directly
+  const fetchNotes = useCallback(async (filter: string, search: string) => {
     setIsLoading(true);
     try {
       let url = "/api/notes";
       const params = new URLSearchParams();
 
-      if (searchQuery) {
-        params.set("search", searchQuery);
-      } else if (activeFilter === "favorites") {
+      if (search) {
+        params.set("search", search);
+      } else if (filter === "favorites") {
         params.set("filter", "favorites");
-      } else if (activeFilter === "recent") {
+      } else if (filter === "recent") {
         params.set("filter", "recent");
-      } else if (activeFilter === "archived") {
+      } else if (filter === "archived") {
         params.set("filter", "archived");
-      } else if (activeFilter === "trash") {
+      } else if (filter === "trash") {
         params.set("filter", "trash");
-      } else if (activeFilter.startsWith("category-")) {
-        params.set("categoryId", activeFilter.replace("category-", ""));
-      } else if (activeFilter.startsWith("tag-")) {
-        params.set("tagId", activeFilter.replace("tag-", ""));
+      } else if (filter.startsWith("category-")) {
+        params.set("categoryId", filter.replace("category-", ""));
+      } else if (filter.startsWith("tag-")) {
+        params.set("tagId", filter.replace("tag-", ""));
       }
 
       if (params.toString()) {
@@ -161,11 +164,14 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeFilter, searchQuery]);
+  }, []);
 
-  // Fetch categories and tags
+  // Initial load - fetch categories, tags, and notes once
   useEffect(() => {
-    const fetchCategoriesAndTags = async () => {
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    const fetchInitialData = async () => {
       try {
         const [categoriesRes, tagsRes] = await Promise.all([
           fetch("/api/categories", { headers: getAuthHeaders() }),
@@ -185,22 +191,31 @@ export default function DashboardPage() {
         console.error("Failed to fetch categories/tags:", error);
       }
     };
-    fetchCategoriesAndTags();
-  }, []);
+    
+    fetchInitialData();
+    fetchNotes(activeFilter, searchQuery);
+  }, [activeFilter, searchQuery, fetchNotes]);
 
+  // Fetch notes when filter changes (skip initial)
+  const prevFilterRef = useRef(activeFilter);
   useEffect(() => {
-    fetchNotes();
-  }, [fetchNotes]);
+    if (prevFilterRef.current !== activeFilter) {
+      prevFilterRef.current = activeFilter;
+      if (!searchQuery) {
+        fetchNotes(activeFilter, "");
+      }
+    }
+  }, [activeFilter, searchQuery, fetchNotes]);
 
   // Debounced search
   useEffect(() => {
+    if (!searchQuery) return;
+    
     const timer = setTimeout(() => {
-      if (searchQuery) {
-        fetchNotes();
-      }
+      fetchNotes(activeFilter, searchQuery);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchNotes]);
+  }, [searchQuery, activeFilter, fetchNotes]);
 
   const handleLogout = async () => {
     try {
@@ -232,8 +247,9 @@ export default function DashboardPage() {
 
       if (response.ok) {
         const data = await response.json();
+        // Add new note to the beginning of the list (optimistic update)
+        setNotes(prev => [data.note, ...prev]);
         setSelectedNote(data.note);
-        fetchNotes();
       }
     } catch (error) {
       console.error("Failed to create note:", error);
@@ -256,8 +272,9 @@ export default function DashboardPage() {
 
       if (response.ok) {
         const data = await response.json();
+        // Update the note in place (optimistic update)
+        setNotes(prev => prev.map(n => n.id === data.note.id ? data.note : n));
         setSelectedNote(data.note);
-        fetchNotes();
       }
     } catch (error) {
       console.error("Failed to update note:", error);
@@ -270,10 +287,12 @@ export default function DashboardPage() {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
+      
+      // Remove from local state (optimistic update)
+      setNotes(prev => prev.filter(n => n.id !== noteId));
       if (selectedNote?.id === noteId) {
         setSelectedNote(null);
       }
-      fetchNotes();
     } catch (error) {
       console.error("Failed to delete note:", error);
     }
