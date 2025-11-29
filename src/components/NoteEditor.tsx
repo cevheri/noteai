@@ -25,7 +25,6 @@ import {
   Eye,
   Edit3,
   Columns,
-  CloudOff,
   Loader2,
   CheckCircle2,
   Copy,
@@ -73,13 +72,20 @@ export function NoteEditor({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastNoteIdRef = useRef<number>(note.id);
 
-  // Update local state when note changes
+  // Only reset local state when note ID changes (switching to different note)
   useEffect(() => {
-    setTitle(note.title);
-    setContent(note.content);
-    setViewMode("edit");
-    setSaveStatus("idle");
+    if (lastNoteIdRef.current !== note.id) {
+      lastNoteIdRef.current = note.id;
+      setTitle(note.title);
+      setContent(note.content);
+      setViewMode("edit");
+      setSaveStatus("idle");
+      // Clear any pending saves
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+    }
   }, [note.id, note.title, note.content]);
 
   // Cleanup timeouts on unmount
@@ -90,14 +96,14 @@ export function NoteEditor({
     };
   }, []);
 
-  // Auto-save with status indicator
+  // Auto-save function
   const triggerAutoSave = useCallback(
     (updatedTitle: string, updatedContent: string) => {
       // Clear existing timeouts
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
       
-      // Show saving status after brief delay (avoid flicker for fast typing)
+      // Show saving status
       setSaveStatus("saving");
       
       saveTimeoutRef.current = setTimeout(() => {
@@ -119,36 +125,16 @@ export function NoteEditor({
     [note, onUpdate]
   );
 
-  // Trigger auto-save on content changes
-  const isInitialMount = useRef(true);
-  useEffect(() => {
-    // Skip initial mount to avoid unnecessary save on note load
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    
-    // Only trigger if content actually changed from the note prop
-    if (title !== note.title || content !== note.content) {
-      triggerAutoSave(title, content);
-    }
-    
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    };
-  }, [title, content, triggerAutoSave, note.title, note.content]);
-
-  // Reset initial mount flag when note changes
-  useEffect(() => {
-    isInitialMount.current = true;
-  }, [note.id]);
-
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTitle(e.target.value);
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    triggerAutoSave(newTitle, content);
   };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+    const newContent = e.target.value;
+    setContent(newContent);
+    triggerAutoSave(title, newContent);
   };
 
   const insertMarkdown = (before: string, after: string = "") => {
@@ -166,6 +152,7 @@ export function NoteEditor({
       content.substring(end);
     
     setContent(newContent);
+    triggerAutoSave(title, newContent);
     
     setTimeout(() => {
       textarea.focus();
