@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -19,22 +19,43 @@ function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Clear old tokens on mount to prevent auth conflicts
+  useEffect(() => {
+    localStorage.removeItem("bearer_token");
+  }, []);
+
   const handleLogin = async (loginEmail: string, loginPassword: string) => {
     setIsLoading(true);
 
-    const { error } = await authClient.signIn.email({
-      email: loginEmail,
-      password: loginPassword,
-      rememberMe: rememberMe,
-    });
+    try {
+      const { data, error } = await authClient.signIn.email({
+        email: loginEmail,
+        password: loginPassword,
+        rememberMe: rememberMe,
+      });
 
-    if (error?.code) {
-      toast.error("Invalid email or password. Please make sure you have registered an account first.");
+      if (error?.code) {
+        console.error("Login error:", error);
+        if (error.code === "INVALID_PASSWORD") {
+          toast.error("Şifre yanlış. Lütfen tekrar deneyin.");
+        } else if (error.code === "USER_NOT_FOUND") {
+          toast.error("Bu email ile kayıtlı hesap bulunamadı.");
+        } else {
+          toast.error("Giriş başarısız. Lütfen email ve şifrenizi kontrol edin.");
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      if (data?.user) {
+        toast.success("Giriş başarılı!");
+        window.location.replace("/dashboard");
+      }
+    } catch (err) {
+      console.error("Login exception:", err);
+      toast.error("Bir hata oluştu. Lütfen tekrar deneyin.");
       setIsLoading(false);
-      return;
     }
-
-    window.location.replace("/dashboard");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
