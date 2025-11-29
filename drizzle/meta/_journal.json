@@ -8,6 +8,13 @@
       "when": 1764332158803,
       "tag": "0000_mighty_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1764425712792,
+      "tag": "0001_faithful_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }

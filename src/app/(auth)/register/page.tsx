@@ -8,6 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, FileText } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
+
+type ErrorTypes = Partial<Record<keyof typeof authClient.$ERROR_CODES, string>>;
+const errorCodes = {
+  USER_ALREADY_EXISTS: "This email is already registered. Please sign in instead.",
+} satisfies ErrorTypes;
+
+const getErrorMessage = (code: string) => {
+  if (code in errorCodes) {
+    return errorCodes[code as keyof typeof errorCodes];
+  }
+  return "Registration failed. Please try again.";
+};
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,50 +29,37 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      toast.error("Passwords do not match");
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
     setIsLoading(true);
 
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
-      });
+    const { error } = await authClient.signUp.email({
+      email,
+      name,
+      password,
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Registration failed");
-        return;
-      }
-
-      // Store token in localStorage
-      localStorage.setItem("bearer_token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-
-      // Use window.location for redirect (works better in iframe)
-      window.location.href = "/dashboard";
-    } catch {
-      setError("An error occurred. Please try again.");
-    } finally {
+    if (error?.code) {
+      toast.error(getErrorMessage(error.code));
       setIsLoading(false);
+      return;
     }
+
+    toast.success("Account created successfully!");
+    router.push("/login?registered=true");
   };
 
   return (
@@ -78,12 +79,6 @@ export default function RegisterPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-950/50 dark:text-red-400 rounded-lg">
-                  {error}
-                </div>
-              )}
-
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <Input

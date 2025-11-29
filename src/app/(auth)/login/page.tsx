@@ -2,58 +2,45 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, FileText, Sparkles } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
+  const registered = searchParams.get("registered");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (loginEmail: string, loginPassword: string) => {
-    setError("");
     setIsLoading(true);
 
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
-      });
+    const { error } = await authClient.signIn.email({
+      email: loginEmail,
+      password: loginPassword,
+      rememberMe: rememberMe,
+    });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Login failed");
-        setIsLoading(false);
-        return;
-      }
-
-      // Store token in localStorage
-      localStorage.setItem("bearer_token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-
-      // Force full page navigation to dashboard
-      window.location.replace("/dashboard");
-    } catch {
-      setError("An error occurred. Please try again.");
+    if (error?.code) {
+      toast.error("Invalid email or password. Please make sure you have registered an account first.");
       setIsLoading(false);
+      return;
     }
+
+    // Force full page navigation to dashboard
+    window.location.replace("/dashboard");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await handleLogin(email, password);
-  };
-
-  const handleDemoLogin = async () => {
-    setEmail("demo@notesai.com");
-    setPassword("demo123");
-    await handleLogin("demo@notesai.com", "demo123");
   };
 
   return (
@@ -73,9 +60,9 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-950/50 dark:text-red-400 rounded-lg">
-                  {error}
+              {registered && (
+                <div className="p-3 text-sm text-green-600 bg-green-50 dark:bg-green-950/50 dark:text-green-400 rounded-lg">
+                  Account created successfully! Please sign in.
                 </div>
               )}
 
@@ -107,6 +94,17 @@ export default function LoginPage() {
                 />
               </div>
 
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="rememberMe" className="text-sm font-normal">Remember me</Label>
+              </div>
+
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
@@ -118,25 +116,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t"></div>
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or</span>
-              </div>
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleDemoLogin}
-              disabled={isLoading}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              Try Demo Account
-            </Button>
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">

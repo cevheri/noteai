@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   FileText,
   Plus,
@@ -24,6 +25,8 @@ import {
   Lightbulb,
   Code,
   Book,
+  Crown,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,14 +42,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { NoteEditor } from "@/components/NoteEditor";
 import { AIAssistantModal } from "@/components/AIAssistantModal";
+import { authClient, useSession } from "@/lib/auth-client";
+import { AutumnProvider, useCustomer } from "autumn-js/react";
+import { toast } from "sonner";
 import type { Note, Category, Tag as TagType } from "@/lib/db";
-
-interface UserData {
-  id: number;
-  name: string;
-  email: string;
-  avatar?: string;
-}
 
 const categoryIcons: Record<string, React.ElementType> = {
   user: User,
@@ -67,9 +66,125 @@ const getAuthHeaders = (): HeadersInit => {
   };
 };
 
-export default function DashboardPage() {
+// Plan Badge Component
+function PlanBadge() {
+  const { customer, isLoading } = useCustomer();
+  
+  if (isLoading) {
+    return <Skeleton className="h-6 w-16" />;
+  }
+  
+  const currentPlan = customer?.products?.at(-1);
+  const planName = currentPlan?.name || "Free";
+  const isPro = planName === "Pro";
+  const isTeam = planName === "Team";
+  
+  return (
+    <Link
+      href="/pricing"
+      className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full transition-colors ${
+        isTeam
+          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+          : isPro
+          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+          : "bg-muted text-muted-foreground hover:bg-muted/80"
+      }`}
+    >
+      {(isPro || isTeam) && <Crown className="w-3 h-3" />}
+      {planName}
+    </Link>
+  );
+}
+
+// Usage Indicator Component
+function UsageIndicator() {
+  const { customer, isLoading } = useCustomer();
+  
+  if (isLoading || !customer?.features) {
+    return null;
+  }
+  
+  const notesFeature = customer.features["notes"];
+  const aiFeature = customer.features["ai_requests"];
+  
+  const notesUsage = notesFeature?.usage || 0;
+  const notesLimit = notesFeature?.included_usage;
+  const notesUnlimited = notesFeature?.unlimited || !notesLimit;
+  
+  const aiUsage = aiFeature?.usage || 0;
+  const aiLimit = aiFeature?.included_usage;
+  const aiUnlimited = aiFeature?.unlimited || !aiLimit;
+  
+  return (
+    <div className="px-3 py-2 border-t border-sidebar-border">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+        Usage
+      </p>
+      <div className="space-y-2">
+        {/* Notes Usage */}
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-muted-foreground">Notes</span>
+            <span className="font-mono">
+              {notesUnlimited ? `${notesUsage} used` : `${notesUsage}/${notesLimit}`}
+            </span>
+          </div>
+          {!notesUnlimited && notesLimit && (
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  (notesUsage / notesLimit) > 0.9
+                    ? "bg-destructive"
+                    : (notesUsage / notesLimit) > 0.75
+                    ? "bg-amber-500"
+                    : "bg-primary"
+                }`}
+                style={{ width: `${Math.min(100, (notesUsage / notesLimit) * 100)}%` }}
+              />
+            </div>
+          )}
+        </div>
+        
+        {/* AI Requests Usage */}
+        <div>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-muted-foreground">AI Requests</span>
+            <span className="font-mono">
+              {aiUnlimited ? `${aiUsage} used` : `${aiUsage}/${aiLimit}`}
+            </span>
+          </div>
+          {!aiUnlimited && aiLimit && (
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  (aiUsage / aiLimit) > 0.9
+                    ? "bg-destructive"
+                    : (aiUsage / aiLimit) > 0.75
+                    ? "bg-amber-500"
+                    : "bg-primary"
+                }`}
+                style={{ width: `${Math.min(100, (aiUsage / aiLimit) * 100)}%` }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <Link
+        href="/pricing"
+        className="block mt-3 text-xs text-primary hover:underline"
+      >
+        Upgrade Plan →
+      </Link>
+    </div>
+  );
+}
+
+// Inner dashboard component that uses Autumn hooks
+function DashboardContent() {
   const router = useRouter();
-  const [user, setUser] = useState<UserData | null>(null);
+  const { data: session, isPending, refetch } = useSession();
+  const { customer, check, track, refetch: refetchCustomer, isLoading: customerLoading } = useCustomer();
   const [notes, setNotes] = useState<Note[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<TagType[]>([]);
@@ -84,46 +199,12 @@ export default function DashboardPage() {
   // Track if initial load happened
   const initialLoadDone = useRef(false);
 
-  // Check authentication and get user data
+  // Check authentication
   useEffect(() => {
-    const token = localStorage.getItem("bearer_token");
-    const storedUser = localStorage.getItem("user");
-    
-    if (!token) {
+    if (!isPending && !session?.user) {
       router.push("/login");
-      return;
     }
-
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        // If parsing fails, fetch from API
-      }
-    }
-
-    // Verify token is still valid
-    const verifyToken = async () => {
-      try {
-        const response = await fetch("/api/auth/me", {
-          headers: getAuthHeaders(),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.user);
-          localStorage.setItem("user", JSON.stringify(data.user));
-        } else {
-          // Token invalid, redirect to login
-          localStorage.removeItem("bearer_token");
-          localStorage.removeItem("user");
-          router.push("/login");
-        }
-      } catch (error) {
-        console.error("Failed to verify token:", error);
-      }
-    };
-    verifyToken();
-  }, [router]);
+  }, [session, isPending, router]);
 
   // Fetch notes - stable function that reads current state directly
   const fetchNotes = useCallback(async (filter: string, search: string) => {
@@ -168,7 +249,7 @@ export default function DashboardPage() {
 
   // Initial load - fetch categories, tags, and notes once
   useEffect(() => {
-    if (initialLoadDone.current) return;
+    if (initialLoadDone.current || isPending || !session?.user) return;
     initialLoadDone.current = true;
 
     const fetchInitialData = async () => {
@@ -194,7 +275,7 @@ export default function DashboardPage() {
     
     fetchInitialData();
     fetchNotes(activeFilter, searchQuery);
-  }, [activeFilter, searchQuery, fetchNotes]);
+  }, [activeFilter, searchQuery, fetchNotes, isPending, session]);
 
   // Fetch notes when filter changes (skip initial)
   const prevFilterRef = useRef(activeFilter);
@@ -218,20 +299,40 @@ export default function DashboardPage() {
   }, [searchQuery, activeFilter, fetchNotes]);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { 
-        method: "POST",
-        headers: getAuthHeaders(),
-      });
+    const token = localStorage.getItem("bearer_token");
+    
+    const { error } = await authClient.signOut({
+      fetchOptions: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+    
+    if (error?.code) {
+      toast.error("Failed to sign out");
+    } else {
       localStorage.removeItem("bearer_token");
-      localStorage.removeItem("user");
+      refetch();
       router.push("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
     }
   };
 
   const handleCreateNote = async () => {
+    // Check if user can create more notes
+    if (!customerLoading) {
+      const { data } = await check({ featureId: "notes", requiredBalance: 1 });
+      if (!data?.allowed) {
+        toast.error("You've reached your note limit. Please upgrade your plan to create more notes.", {
+          action: {
+            label: "Upgrade",
+            onClick: () => router.push("/pricing"),
+          },
+        });
+        return;
+      }
+    }
+
     try {
       const response = await fetch("/api/notes", {
         method: "POST",
@@ -250,6 +351,10 @@ export default function DashboardPage() {
         // Add new note to the beginning of the list (optimistic update)
         setNotes(prev => [data.note, ...prev]);
         setSelectedNote(data.note);
+        
+        // Track note creation
+        await track({ featureId: "notes", value: 1, idempotencyKey: `note-${data.note.id}` });
+        await refetchCustomer();
       }
     } catch (error) {
       console.error("Failed to create note:", error);
@@ -306,15 +411,33 @@ export default function DashboardPage() {
     await handleNoteUpdate({ ...note, isArchived: !note.isArchived });
   };
 
-  const openAIAssistant = (text: string = "") => {
+  const openAIAssistant = async (text: string = "") => {
+    // Check AI request allowance
+    if (!customerLoading) {
+      const { data } = await check({ featureId: "ai_requests", requiredBalance: 1 });
+      if (!data?.allowed) {
+        toast.error("You've reached your AI request limit for this month. Please upgrade your plan.", {
+          action: {
+            label: "Upgrade",
+            onClick: () => router.push("/pricing"),
+          },
+        });
+        return;
+      }
+    }
+    
     setAISelectedText(text);
     setIsAIModalOpen(true);
   };
 
-  const handleAIInsert = (text: string) => {
+  const handleAIInsert = async (text: string) => {
     if (selectedNote) {
       const updatedContent = selectedNote.content + "\n\n" + text;
       handleNoteUpdate({ ...selectedNote, content: updatedContent });
+      
+      // Track AI usage
+      await track({ featureId: "ai_requests", value: 1, idempotencyKey: `ai-${Date.now()}` });
+      await refetchCustomer();
     }
     setIsAIModalOpen(false);
   };
@@ -350,6 +473,22 @@ export default function DashboardPage() {
     return "Notes";
   };
 
+  // Show loading while checking auth
+  if (isPending) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session?.user) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen bg-background">
       {/* Mobile sidebar overlay */}
@@ -375,14 +514,17 @@ export default function DashboardPage() {
               </div>
               <span className="font-semibold">NotesAI</span>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              <X className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <PlanBadge />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setIsSidebarOpen(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {/* New Note Button */}
@@ -474,6 +616,9 @@ export default function DashboardPage() {
             </div>
           </ScrollArea>
 
+          {/* Usage Indicators */}
+          <UsageIndicator />
+
           {/* User Profile */}
           <div className="p-3 border-t border-sidebar-border">
             <DropdownMenu>
@@ -483,21 +628,27 @@ export default function DashboardPage() {
                   className="w-full justify-start h-auto py-2"
                 >
                   <Avatar className="w-8 h-8 mr-2">
-                    <AvatarImage src={user?.avatar} />
+                    <AvatarImage src={session.user.image || undefined} />
                     <AvatarFallback>
-                      {user?.name?.charAt(0).toUpperCase() || "U"}
+                      {session.user.name?.charAt(0).toUpperCase() || "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 text-left">
-                    <p className="text-sm font-medium truncate">{user?.name}</p>
+                    <p className="text-sm font-medium truncate">{session.user.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {user?.email}
+                      {session.user.email}
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link href="/pricing">
+                    <Crown className="w-4 h-4 mr-2" />
+                    Upgrade Plan
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem disabled>
                   <User className="w-4 h-4 mr-2" />
                   Profile Settings
@@ -636,6 +787,31 @@ export default function DashboardPage() {
         onInsert={handleAIInsert}
       />
     </div>
+  );
+}
+
+// Main export - wraps with AutumnProvider
+export default function DashboardPage() {
+  const { data: session, isPending } = useSession();
+
+  if (isPending) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <AutumnProvider
+      apiKey={process.env.NEXT_PUBLIC_AUTUMN_PUBLISHABLE_KEY}
+      customerId={session?.user?.id}
+    >
+      <DashboardContent />
+    </AutumnProvider>
   );
 }
 
