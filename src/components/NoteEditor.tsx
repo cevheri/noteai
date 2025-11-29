@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -23,6 +23,9 @@ import {
   Eye,
   Edit3,
   Columns,
+  CloudOff,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,33 +66,78 @@ export function NoteEditor({
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isTagOpen, setIsTagOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"edit" | "preview" | "split">("edit");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update local state when note changes
   useEffect(() => {
     setTitle(note.title);
     setContent(note.content);
     setViewMode("edit");
+    setSaveStatus("idle");
   }, [note.id, note.title, note.content]);
 
-  // Debounced auto-save
-  const debouncedUpdate = useCallback(
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+    };
+  }, []);
+
+  // Auto-save with status indicator
+  const triggerAutoSave = useCallback(
     (updatedTitle: string, updatedContent: string) => {
-      const timer = setTimeout(() => {
+      // Clear existing timeouts
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+      
+      // Show saving status after brief delay (avoid flicker for fast typing)
+      setSaveStatus("saving");
+      
+      saveTimeoutRef.current = setTimeout(() => {
         onUpdate({
           ...note,
           title: updatedTitle,
           content: updatedContent,
         });
-      }, 500);
-      return () => clearTimeout(timer);
+        
+        // Show saved status
+        setSaveStatus("saved");
+        
+        // Reset to idle after 2 seconds
+        statusTimeoutRef.current = setTimeout(() => {
+          setSaveStatus("idle");
+        }, 2000);
+      }, 800);
     },
     [note, onUpdate]
   );
 
+  // Trigger auto-save on content changes
+  const isInitialMount = useRef(true);
   useEffect(() => {
-    const cleanup = debouncedUpdate(title, content);
-    return cleanup;
-  }, [title, content, debouncedUpdate]);
+    // Skip initial mount to avoid unnecessary save on note load
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    
+    // Only trigger if content actually changed from the note prop
+    if (title !== note.title || content !== note.content) {
+      triggerAutoSave(title, content);
+    }
+    
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [title, content, triggerAutoSave, note.title, note.content]);
+
+  // Reset initial mount flag when note changes
+  useEffect(() => {
+    isInitialMount.current = true;
+  }, [note.id]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
@@ -276,6 +324,28 @@ export function NoteEditor({
             <Eye className="w-3.5 h-3.5 mr-1.5" />
             Preview
           </Button>
+        </div>
+        
+        {/* Auto-save Status Indicator */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
+          {saveStatus === "saving" && (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Saving...</span>
+            </>
+          )}
+          {saveStatus === "saved" && (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+              <span className="text-green-600 dark:text-green-400">Saved</span>
+            </>
+          )}
+          {saveStatus === "idle" && (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 opacity-50" />
+              <span className="opacity-70">Auto-save</span>
+            </>
+          )}
         </div>
         
         <div className="w-px h-6 bg-border mx-1" />
