@@ -39,6 +39,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -66,6 +74,7 @@ export function NoteEditor({
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
+  const [localTags, setLocalTags] = useState<number[]>(note.tags || []);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isTagOpen, setIsTagOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"edit" | "preview" | "split">("edit");
@@ -80,13 +89,14 @@ export function NoteEditor({
       lastNoteIdRef.current = note.id;
       setTitle(note.title);
       setContent(note.content);
+      setLocalTags(note.tags || []);
       setViewMode("edit");
       setSaveStatus("idle");
       // Clear any pending saves
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
     }
-  }, [note.id, note.title, note.content]);
+  }, [note.id, note.title, note.content, note.tags]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -184,14 +194,20 @@ export function NoteEditor({
   };
 
   const toggleTag = (tagId: number) => {
-    const newTags = note.tags.includes(tagId)
-      ? note.tags.filter((t) => t !== tagId)
-      : [...note.tags, tagId];
+    const currentTags = localTags || [];
+    const newTags = currentTags.includes(tagId)
+      ? currentTags.filter((t) => t !== tagId)
+      : [...currentTags, tagId];
+    
+    // Update local state immediately for visual feedback
+    setLocalTags(newTags);
+    
+    // Then update parent
     onUpdate({ ...note, tags: newTags });
   };
 
   const currentCategory = categories.find((c) => c.id === note.categoryId);
-  const noteTags = tags.filter((t) => note.tags.includes(t.id));
+  const noteTags = tags.filter((t) => (localTags || []).includes(t.id));
 
   // Preview component to avoid duplication
   const PreviewContent = () => {
@@ -503,40 +519,49 @@ export function NoteEditor({
             </PopoverContent>
           </Popover>
           
-          <Popover open={isTagOpen} onOpenChange={setIsTagOpen}>
-            <PopoverTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="text-muted-foreground">
                 <Tag className="w-4 h-4 mr-1" />
                 Add Tags
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-48" align="start">
-              <Command>
-                <CommandInput placeholder="Search tags..." />
-                <CommandList>
-                  <CommandEmpty>No tags found.</CommandEmpty>
-                  <CommandGroup>
-                    {tags.map((tag) => (
-                      <div
-                        key={tag.id}
-                        className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                        onClick={() => toggleTag(tag.id)}
-                      >
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-48" align="start">
+              <DropdownMenuLabel className="text-xs">Select Tags</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {tags.length === 0 ? (
+                <p className="text-sm text-muted-foreground px-2 py-1.5">No tags available</p>
+              ) : (
+                tags.map((tag) => {
+                  const isSelected = (localTags || []).includes(tag.id);
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={tag.id}
+                      checked={isSelected}
+                      onCheckedChange={() => {
+                        const currentTags = localTags || [];
+                        const newTags = currentTags.includes(tag.id)
+                          ? currentTags.filter((t) => t !== tag.id)
+                          : [...currentTags, tag.id];
+                        
+                        setLocalTags(newTags);
+                        onUpdate({ ...note, tags: newTags });
+                      }}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      <div className="flex items-center gap-2">
                         <div
-                          className="w-3 h-3 rounded-full mr-2"
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                           style={{ backgroundColor: tag.color }}
                         />
-                        #{tag.name}
-                        {note.tags.includes(tag.id) && (
-                          <Check className="ml-auto w-4 h-4" />
-                        )}
+                        <span>#{tag.name}</span>
                       </div>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+                    </DropdownMenuCheckboxItem>
+                  );
+                })
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           {noteTags.length > 0 && (
             <div className="flex items-center gap-1 flex-wrap">
