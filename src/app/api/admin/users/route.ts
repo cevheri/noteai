@@ -78,8 +78,8 @@ export async function GET(request: NextRequest) {
       name: u.name,
       email: u.email,
       role: u.role,
-      createdAt: u.createdAt instanceof Date ? u.createdAt.toISOString() : new Date(u.createdAt).toISOString(),
-      updatedAt: u.updatedAt instanceof Date ? u.updatedAt.toISOString() : new Date(u.updatedAt).toISOString(),
+      createdAt: u.createdAt ? (u.createdAt instanceof Date ? u.createdAt.toISOString() : new Date(u.createdAt).toISOString()) : new Date().toISOString(),
+      updatedAt: u.updatedAt ? (u.updatedAt instanceof Date ? u.updatedAt.toISOString() : new Date(u.updatedAt).toISOString()) : null,
       image: u.image,
       emailVerified: u.emailVerified,
     }));
