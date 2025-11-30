@@ -16,7 +16,7 @@ import {
   TEMPLATE_ICONS,
   type NoteTemplate,
 } from "@/lib/templates";
-import { FileText, Sparkles } from "lucide-react";
+import { FileText, Sparkles, X } from "lucide-react";
 
 interface TemplatesModalProps {
   isOpen: boolean;
@@ -60,8 +60,8 @@ export function TemplatesModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[95vw] max-w-3xl h-[85vh] max-h-[700px] p-0 gap-0 flex flex-col">
-        <DialogHeader className="p-4 md:p-6 pb-4 border-b flex-shrink-0">
+      <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-4 md:p-6 pb-4 border-b">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="w-5 h-5 text-primary" />
             Start with a Template
@@ -71,120 +71,100 @@ export function TemplatesModal({
           </p>
         </DialogHeader>
 
-        <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
-          {/* Templates List */}
-          <div className="flex-1 flex flex-col min-h-0 border-b md:border-b-0 md:border-r">
-            {/* Category Filters */}
-            <div className="flex gap-2 p-3 md:p-4 overflow-x-auto flex-shrink-0 border-b">
-              <Button
-                variant={activeCategory === "all" ? "default" : "outline"}
-                size="sm"
-                className="flex-shrink-0 h-8"
-                onClick={() => setActiveCategory("all")}
-              >
-                All
-              </Button>
-              {Object.entries(TEMPLATE_CATEGORIES).map(([key, { label }]) => (
-                <Button
-                  key={key}
-                  variant={activeCategory === key ? "default" : "outline"}
-                  size="sm"
-                  className="flex-shrink-0 h-8"
-                  onClick={() => setActiveCategory(key as CategoryFilter)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Templates Grid */}
-            <ScrollArea className="flex-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 md:p-4">
-                {filteredTemplates.map((template) => {
-                  const IconComponent = TEMPLATE_ICONS[template.icon] || FileText;
-                  const isSelected = selectedTemplate?.id === template.id;
-                  const categoryInfo = TEMPLATE_CATEGORIES[template.category];
-
-                  return (
-                    <button
-                      key={template.id}
-                      onClick={() => handleSelectTemplate(template)}
-                      className={`group p-3 md:p-4 rounded-lg border text-left transition-all active:scale-[0.98] ${
-                        isSelected
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
-                          : "border-border hover:border-primary/50 hover:bg-accent/50"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-lg flex-shrink-0"
-                          style={{
-                            backgroundColor: `${categoryInfo.color}15`,
-                            color: categoryInfo.color,
-                          }}
-                        >
-                          <IconComponent className="w-4 h-4 md:w-5 md:h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm md:text-base truncate">
-                            {template.title}
-                          </h3>
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                            {template.description}
-                          </p>
-                          <Badge
-                            variant="secondary"
-                            className="mt-2 text-[10px] md:text-xs"
-                            style={{
-                              backgroundColor: `${categoryInfo.color}15`,
-                              color: categoryInfo.color,
-                            }}
-                          >
-                            {categoryInfo.label}
-                          </Badge>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </div>
-
-          {/* Preview Panel */}
-          <div className="w-full md:w-80 flex flex-col min-h-0 flex-shrink-0 max-h-[40%] md:max-h-none">
-            {selectedTemplate ? (
-              <>
-                <div className="p-3 md:p-4 border-b flex-shrink-0">
-                  <h3 className="font-medium">{selectedTemplate.title}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Preview
-                  </p>
-                </div>
-                <ScrollArea className="flex-1 p-3 md:p-4">
-                  <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
-                    {selectedTemplate.content.slice(0, 500)}
-                    {selectedTemplate.content.length > 500 && "..."}
-                  </pre>
-                </ScrollArea>
-                <div className="p-3 md:p-4 border-t flex-shrink-0">
-                  <Button className="w-full" onClick={handleUseTemplate}>
-                    Use This Template
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center p-4 text-center">
-                <div>
-                  <FileText className="w-10 h-10 mx-auto text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Select a template to preview
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+        {/* Category Filters */}
+        <div className="flex gap-2 p-3 md:p-4 overflow-x-auto border-b bg-muted/30">
+          <Button
+            variant={activeCategory === "all" ? "default" : "outline"}
+            size="sm"
+            className="flex-shrink-0 h-8"
+            onClick={() => setActiveCategory("all")}
+          >
+            All
+          </Button>
+          {Object.entries(TEMPLATE_CATEGORIES).map(([key, { label }]) => (
+            <Button
+              key={key}
+              variant={activeCategory === key ? "default" : "outline"}
+              size="sm"
+              className="flex-shrink-0 h-8"
+              onClick={() => setActiveCategory(key as CategoryFilter)}
+            >
+              {label}
+            </Button>
+          ))}
         </div>
+
+        {/* Templates Grid */}
+        <ScrollArea className="flex-1 max-h-[50vh]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
+            {filteredTemplates.map((template) => {
+              const IconComponent = TEMPLATE_ICONS[template.icon] || FileText;
+              const isSelected = selectedTemplate?.id === template.id;
+              const categoryInfo = TEMPLATE_CATEGORIES[template.category];
+
+              return (
+                <button
+                  key={template.id}
+                  onClick={() => handleSelectTemplate(template)}
+                  className={`group p-4 rounded-xl border text-left transition-all active:scale-[0.98] ${
+                    isSelected
+                      ? "border-primary bg-primary/5 ring-2 ring-primary shadow-sm"
+                      : "border-border hover:border-primary/50 hover:bg-accent/50"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0"
+                      style={{
+                        backgroundColor: `${categoryInfo.color}15`,
+                        color: categoryInfo.color,
+                      }}
+                    >
+                      <IconComponent className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-sm truncate">
+                        {template.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        {template.description}
+                      </p>
+                      <Badge
+                        variant="secondary"
+                        className="mt-2 text-[10px]"
+                        style={{
+                          backgroundColor: `${categoryInfo.color}15`,
+                          color: categoryInfo.color,
+                        }}
+                      >
+                        {categoryInfo.label}
+                      </Badge>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+
+        {/* Selected Template Preview & Action */}
+        {selectedTemplate && (
+          <div className="border-t bg-muted/30 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {selectedTemplate.title}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {selectedTemplate.description}
+                </p>
+              </div>
+              <Button onClick={handleUseTemplate} className="flex-shrink-0">
+                Use Template
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
