@@ -29,6 +29,7 @@ import {
   ChevronLeft,
   Home,
   PenSquare,
+  LayoutTemplate,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { NoteEditor } from "@/components/NoteEditor";
 import { AIAssistantModal } from "@/components/AIAssistantModal";
+import { TemplatesModal } from "@/components/TemplatesModal";
+import type { NoteTemplate } from "@/lib/templates";
 import { authClient, useSession } from "@/lib/auth-client";
 import { AutumnProvider, useCustomer } from "autumn-js/react";
 import { toast } from "sonner";
@@ -202,6 +205,7 @@ function DashboardContent() {
   const [aiSelectedText, setAISelectedText] = useState("");
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
   
   // Track if initial load happened
   const initialLoadDone = useRef(false);
@@ -382,6 +386,55 @@ function DashboardContent() {
     } catch (error) {
       console.error("Failed to create note:", error);
       toast.error("Failed to create note");
+    }
+  };
+
+  const handleSelectTemplate = async (template: NoteTemplate) => {
+    // Check if user can create more notes
+    if (!customerLoading) {
+      const { data } = await check({ featureId: "notes", requiredBalance: 1 });
+      if (!data?.allowed) {
+        toast.error("You've reached your note limit. Please upgrade your plan to create more notes.", {
+          action: {
+            label: "Upgrade",
+            onClick: () => router.push("/pricing"),
+          },
+        });
+        return;
+      }
+    }
+
+    try {
+      const response = await fetch("/api/db/notes", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title: template.title,
+          content: template.content,
+          categoryId: activeFilter.startsWith("category-")
+            ? parseInt(activeFilter.replace("category-", ""))
+            : null,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotes(prev => [data.note, ...prev]);
+        setSelectedNote(data.note);
+        setMobileView("editor");
+        
+        // Track note creation
+        await track({ featureId: "notes", value: 1, idempotencyKey: `note-${data.note.id}` });
+        await refetchCustomer();
+        
+        toast.success(`Created note from "${template.title}" template`);
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || "Failed to create note from template");
+      }
+    } catch (error) {
+      console.error("Failed to create note from template:", error);
+      toast.error("Failed to create note from template");
     }
   };
 
@@ -566,10 +619,18 @@ function DashboardContent() {
           </div>
 
           {/* New Note Button */}
-          <div className="p-3">
+          <div className="p-3 space-y-2">
             <Button className="w-full justify-start" onClick={handleCreateNote}>
               <Plus className="w-4 h-4 mr-2" />
               New Note
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => { setIsTemplatesModalOpen(true); setIsSidebarOpen(false); }}
+            >
+              <LayoutTemplate className="w-4 h-4 mr-2" />
+              Templates
             </Button>
           </div>
 
@@ -960,6 +1021,13 @@ function DashboardContent() {
         selectedText={aiSelectedText}
         noteContent={selectedNote?.content || ""}
         onInsert={handleAIInsert}
+      />
+
+      {/* Templates Modal */}
+      <TemplatesModal
+        isOpen={isTemplatesModalOpen}
+        onClose={() => setIsTemplatesModalOpen(false)}
+        onSelectTemplate={handleSelectTemplate}
       />
     </div>
   );
