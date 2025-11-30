@@ -353,7 +353,7 @@ function DashboardContent() {
         body: JSON.stringify({
           title: "Untitled Note",
           content: "Start writing here...",
-          userId: session?.user?.id ? parseInt(session.user.id) : null,
+          // userId removed - API will get it from session
           categoryId: activeFilter.startsWith("category-")
             ? parseInt(activeFilter.replace("category-", ""))
             : null,

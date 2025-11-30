@@ -2,12 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { notes, noteTags, tags } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+
+// Helper function to get current user from session
+async function getCurrentUserId(): Promise<number | null> {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (session?.user?.id) {
+      return parseInt(session.user.id);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get current user from session
+    const userId = await getCurrentUserId();
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please log in', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     if (!id || isNaN(parseInt(id))) {
@@ -19,10 +44,11 @@ export async function GET(
 
     const noteId = parseInt(id);
 
+    // Get note and verify ownership
     const note = await db
       .select()
       .from(notes)
-      .where(eq(notes.id, noteId))
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
       .limit(1);
 
     if (note.length === 0) {
@@ -68,6 +94,16 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get current user from session
+    const userId = await getCurrentUserId();
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please log in', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     if (!id || isNaN(parseInt(id))) {
@@ -80,10 +116,11 @@ export async function PUT(
     const noteId = parseInt(id);
     const requestBody = await request.json();
 
+    // Verify ownership before update
     const existingNote = await db
       .select()
       .from(notes)
-      .where(eq(notes.id, noteId))
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
       .limit(1);
 
     if (existingNote.length === 0) {
@@ -103,7 +140,7 @@ export async function PUT(
       tags: tagIds,
     } = requestBody;
 
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       updatedAt: new Date().toISOString(),
     };
 
@@ -117,7 +154,7 @@ export async function PUT(
     const updatedNote = await db
       .update(notes)
       .set(updates)
-      .where(eq(notes.id, noteId))
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
       .returning();
 
     if (tagIds !== undefined && Array.isArray(tagIds)) {
@@ -168,6 +205,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get current user from session
+    const userId = await getCurrentUserId();
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please log in', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     if (!id || isNaN(parseInt(id))) {
@@ -180,10 +227,11 @@ export async function PATCH(
     const noteId = parseInt(id);
     const requestBody = await request.json();
 
+    // Verify ownership before update
     const existingNote = await db
       .select()
       .from(notes)
-      .where(eq(notes.id, noteId))
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
       .limit(1);
 
     if (existingNote.length === 0) {
@@ -203,7 +251,7 @@ export async function PATCH(
       tags: tagIds,
     } = requestBody;
 
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       updatedAt: new Date().toISOString(),
     };
 
@@ -217,7 +265,7 @@ export async function PATCH(
     const updatedNote = await db
       .update(notes)
       .set(updates)
-      .where(eq(notes.id, noteId))
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
       .returning();
 
     if (tagIds !== undefined && Array.isArray(tagIds)) {
@@ -268,6 +316,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get current user from session
+    const userId = await getCurrentUserId();
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please log in', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     if (!id || isNaN(parseInt(id))) {
@@ -281,10 +339,11 @@ export async function DELETE(
     const { searchParams } = new URL(request.url);
     const permanent = searchParams.get('permanent') === 'true';
 
+    // Verify ownership before delete
     const existingNote = await db
       .select()
       .from(notes)
-      .where(eq(notes.id, noteId))
+      .where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
       .limit(1);
 
     if (existingNote.length === 0) {
@@ -296,7 +355,7 @@ export async function DELETE(
 
     if (permanent) {
       await db.delete(noteTags).where(eq(noteTags.noteId, noteId));
-      await db.delete(notes).where(eq(notes.id, noteId)).returning();
+      await db.delete(notes).where(and(eq(notes.id, noteId), eq(notes.userId, userId))).returning();
 
       return NextResponse.json({
         success: true,
@@ -309,7 +368,7 @@ export async function DELETE(
           isDeleted: true,
           updatedAt: new Date().toISOString(),
         })
-        .where(eq(notes.id, noteId))
+        .where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
         .returning();
 
       return NextResponse.json({

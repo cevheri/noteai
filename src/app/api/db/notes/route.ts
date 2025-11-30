@@ -2,26 +2,46 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { notes, noteTags, tags, categories } from '@/db/schema';
 import { eq, like, and, or, desc, inArray } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
+
+// Helper function to get current user from session
+async function getCurrentUserId(): Promise<number | null> {
+  try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (session?.user?.id) {
+      return parseInt(session.user.id);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
+    // Get current user from session
+    const userId = await getCurrentUserId();
+    
+    if (!userId) {
+      return NextResponse.json({ 
+        error: 'Unauthorized - Please log in',
+        code: 'UNAUTHORIZED' 
+      }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 100);
     const offset = parseInt(searchParams.get('offset') ?? '0');
     const search = searchParams.get('search');
     const categoryId = searchParams.get('categoryId');
     const tagId = searchParams.get('tagId');
-    const userId = searchParams.get('userId');
     const isFavorite = searchParams.get('isFavorite');
     const isArchived = searchParams.get('isArchived');
     const isDeleted = searchParams.get('isDeleted');
 
-    // Build WHERE conditions
-    const conditions = [];
-
-    if (userId) {
-      conditions.push(eq(notes.userId, parseInt(userId)));
-    }
+    // Build WHERE conditions - ALWAYS filter by current user
+    const conditions = [eq(notes.userId, userId)];
 
     if (search) {
       conditions.push(
@@ -48,10 +68,10 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(notes.isDeleted, isDeleted === 'true'));
     }
 
-    // Get notes based on filters
+    // Get notes based on filters - always filtered by userId
     let notesList = await db.select()
       .from(notes)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(desc(notes.updatedAt))
       .limit(limit)
       .offset(offset);
@@ -113,8 +133,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Get current user from session
+    const userId = await getCurrentUserId();
+    
+    if (!userId) {
+      return NextResponse.json({ 
+        error: 'Unauthorized - Please log in',
+        code: 'UNAUTHORIZED' 
+      }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { title, content, userId, categoryId, tags: tagIds, isFavorite } = body;
+    const { title, content, categoryId, tags: tagIds, isFavorite } = body;
 
     // Validate required fields
     if (!title || title.trim() === '') {
@@ -128,13 +158,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: "Content is required",
         code: "MISSING_CONTENT" 
-      }, { status: 400 });
-    }
-
-    if (!userId) {
-      return NextResponse.json({ 
-        error: "User ID is required",
-        code: "MISSING_USER_ID" 
       }, { status: 400 });
     }
 
@@ -169,12 +192,12 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString();
 
-    // Insert note
+    // Insert note with userId from session (NOT from client)
     const newNote = await db.insert(notes)
       .values({
         title: title.trim(),
         content: content.trim(),
-        userId: parseInt(userId),
+        userId: userId, // Use session userId - secure!
         categoryId: categoryId ? parseInt(categoryId) : null,
         isFavorite: isFavorite ?? false,
         isArchived: false,
