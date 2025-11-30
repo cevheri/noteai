@@ -472,162 +472,177 @@ export function NoteEditor({
   return (
     <div className="flex flex-col h-full">
       {/* Mobile-optimized Toolbar */}
-      <div className="flex items-center gap-1 px-2 md:px-4 py-2 border-b bg-muted/30 overflow-x-auto">
-        {/* View Mode Toggle */}
-        <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg shrink-0">
-          <Button
-            variant={viewMode === "edit" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("edit")}
-            className="h-7 px-2 md:px-3 text-xs"
-          >
-            <Edit3 className="w-3.5 h-3.5 md:mr-1.5" />
-            <span className="hidden md:inline">Edit</span>
-          </Button>
-          <Button
-            variant={viewMode === "split" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("split")}
-            className="h-7 px-2 md:px-3 text-xs hidden md:flex"
-            title="Side by side view"
-          >
-            <Columns className="w-3.5 h-3.5 mr-1.5" />
-            Split
-          </Button>
-          <Button
-            variant={viewMode === "preview" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("preview")}
-            className="h-7 px-2 md:px-3 text-xs"
-          >
-            <Eye className="w-3.5 h-3.5 md:mr-1.5" />
-            <span className="hidden md:inline">Preview</span>
-          </Button>
-        </div>
-        
-        {/* Auto-save Status */}
-        <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 mx-2">
-          {saveStatus === "saving" && (
+      <div className="flex flex-col border-b bg-muted/30">
+        {/* Main toolbar row */}
+        <div className="flex items-center gap-1 px-2 md:px-4 py-2 overflow-x-auto">
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg shrink-0">
+            <Button
+              variant={viewMode === "edit" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("edit")}
+              className="h-7 px-2 text-xs"
+              title="Edit mode"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline sm:ml-1.5">Edit</span>
+            </Button>
+            <Button
+              variant={viewMode === "split" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("split")}
+              className="h-7 px-2 text-xs hidden lg:flex"
+              title="Side by side view"
+            >
+              <Columns className="w-3.5 h-3.5 mr-1.5" />
+              Split
+            </Button>
+            <Button
+              variant={viewMode === "preview" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("preview")}
+              className="h-7 px-2 text-xs"
+              title="Preview mode"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline sm:ml-1.5">Preview</span>
+            </Button>
+          </div>
+          
+          {/* Auto-save Status */}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 mx-1 sm:mx-2">
+            {saveStatus === "saving" && (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span className="hidden lg:inline">Saving...</span>
+              </>
+            )}
+            {saveStatus === "saved" && (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                <span className="hidden lg:inline text-green-600 dark:text-green-400">Saved</span>
+              </>
+            )}
+            {saveStatus === "idle" && (
+              <CheckCircle2 className="w-3.5 h-3.5 opacity-50" />
+            )}
+          </div>
+
+          {(viewMode === "edit" || viewMode === "split") && (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span className="hidden md:inline">Saving...</span>
+              <div className="w-px h-6 bg-border mx-1 shrink-0" />
+
+              {/* Basic formatting - always visible */}
+              <div className="flex items-center gap-0.5 shrink-0">
+                <ToolbarButton icon={Bold} onClick={() => insertMarkdown("**", "**")} title="Bold" />
+                <ToolbarButton icon={Italic} onClick={() => insertMarkdown("*", "*")} title="Italic" />
+                <ToolbarButton icon={Code} onClick={() => insertMarkdown("`", "`")} title="Code" />
+              </div>
+              
+              {/* Headings - visible on tablet+ */}
+              <div className="hidden md:flex items-center gap-0.5 shrink-0">
+                <div className="w-px h-6 bg-border mx-1" />
+                <ToolbarButton icon={Heading1} onClick={() => insertMarkdown("# ")} title="H1" />
+                <ToolbarButton icon={Heading2} onClick={() => insertMarkdown("## ")} title="H2" />
+                <ToolbarButton icon={Heading3} onClick={() => insertMarkdown("### ")} title="H3" />
+              </div>
+              
+              {/* Lists & Quote - visible on large+ */}
+              <div className="hidden lg:flex items-center gap-0.5 shrink-0">
+                <div className="w-px h-6 bg-border mx-1" />
+                <ToolbarButton icon={List} onClick={() => insertMarkdown("- ")} title="List" />
+                <ToolbarButton icon={ListOrdered} onClick={() => insertMarkdown("1. ")} title="Numbered" />
+                <ToolbarButton icon={Quote} onClick={() => insertMarkdown("> ")} title="Quote" />
+              </div>
+              
+              {/* Links & Images - visible on xl+ */}
+              <div className="hidden xl:flex items-center gap-0.5 shrink-0">
+                <div className="w-px h-6 bg-border mx-1" />
+                <ToolbarButton icon={Link} onClick={() => insertMarkdown("[Link text](", "https://example.com)")} title="Link" />
+                <ToolbarButton icon={Image} onClick={() => insertMarkdown("![Image description](", "https://example.com/image.jpg)")} title="Image" />
+              </div>
+              
+              {/* More options dropdown - visible when items are hidden */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="w-8 h-8 shrink-0 xl:hidden">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>Formatting</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  
+                  {/* Headings - only in dropdown on mobile */}
+                  <div className="md:hidden">
+                    <DropdownMenuItem onClick={() => insertMarkdown("# ")}>
+                      <Heading1 className="w-4 h-4 mr-2" /> Heading 1
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => insertMarkdown("## ")}>
+                      <Heading2 className="w-4 h-4 mr-2" /> Heading 2
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => insertMarkdown("### ")}>
+                      <Heading3 className="w-4 h-4 mr-2" /> Heading 3
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </div>
+                  
+                  {/* Lists - only in dropdown below lg */}
+                  <div className="lg:hidden">
+                    <DropdownMenuItem onClick={() => insertMarkdown("- ")}>
+                      <List className="w-4 h-4 mr-2" /> Bullet List
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => insertMarkdown("1. ")}>
+                      <ListOrdered className="w-4 h-4 mr-2" /> Numbered List
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => insertMarkdown("> ")}>
+                      <Quote className="w-4 h-4 mr-2" /> Quote
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </div>
+                  
+                  {/* Links & Images - always in dropdown below xl */}
+                  <DropdownMenuItem onClick={() => insertMarkdown("[Link text](", "https://example.com)")}>
+                    <Link className="w-4 h-4 mr-2" /> Link
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => insertMarkdown("![Image description](", "https://example.com/image.jpg)")}>
+                    <Image className="w-4 h-4 mr-2" /> Image
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => insertMarkdown("```\n", "\n```")}>
+                    <Code className="w-4 h-4 mr-2" /> Code Block
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
-          {saveStatus === "saved" && (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-              <span className="hidden md:inline text-green-600 dark:text-green-400">Saved</span>
-            </>
+          
+          <div className="flex-1 min-w-2" />
+          
+          {/* Focus Mode Button */}
+          {onOpenFocusMode && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpenFocusMode}
+              className="shrink-0 text-muted-foreground hover:text-foreground h-8 px-2 lg:px-3"
+              title="Focus Mode"
+            >
+              <Focus className="w-4 h-4" />
+              <span className="hidden lg:inline lg:ml-2">Focus</span>
+            </Button>
           )}
-          {saveStatus === "idle" && (
-            <CheckCircle2 className="w-3.5 h-3.5 opacity-50" />
-          )}
-        </div>
-
-        {(viewMode === "edit" || viewMode === "split") && (
-          <>
-            <div className="w-px h-6 bg-border mx-1 shrink-0 hidden sm:block" />
-
-            {/* Basic formatting - always visible */}
-            <div className="flex items-center gap-0.5 shrink-0">
-              <ToolbarButton icon={Bold} onClick={() => insertMarkdown("**", "**")} title="Bold" />
-              <ToolbarButton icon={Italic} onClick={() => insertMarkdown("*", "*")} title="Italic" />
-              <ToolbarButton icon={Code} onClick={() => insertMarkdown("`", "`")} title="Code" />
-            </div>
-            
-            {/* Headings - visible on tablet+ */}
-            <div className="hidden sm:flex items-center gap-0.5 shrink-0">
-              <div className="w-px h-6 bg-border mx-1" />
-              <ToolbarButton icon={Heading1} onClick={() => insertMarkdown("# ")} title="H1" />
-              <ToolbarButton icon={Heading2} onClick={() => insertMarkdown("## ")} title="H2" />
-              <ToolbarButton icon={Heading3} onClick={() => insertMarkdown("### ")} title="H3" />
-            </div>
-            
-            {/* Lists - visible on medium+ */}
-            <div className="hidden md:flex items-center gap-0.5 shrink-0">
-              <div className="w-px h-6 bg-border mx-1" />
-              <ToolbarButton icon={List} onClick={() => insertMarkdown("- ")} title="List" />
-              <ToolbarButton icon={ListOrdered} onClick={() => insertMarkdown("1. ")} title="Numbered" />
-              <ToolbarButton icon={Quote} onClick={() => insertMarkdown("> ")} title="Quote" />
-            </div>
-            
-            {/* Links & Images - visible on large+ */}
-            <div className="hidden lg:flex items-center gap-0.5 shrink-0">
-              <div className="w-px h-6 bg-border mx-1" />
-              <ToolbarButton icon={Link} onClick={() => insertMarkdown("[Link text](", "https://example.com)")} title="Link" />
-              <ToolbarButton icon={Image} onClick={() => insertMarkdown("![Image description](", "https://example.com/image.jpg)")} title="Image" />
-            </div>
-            
-            {/* More options dropdown for mobile */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-8 h-8 shrink-0 sm:hidden">
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Formatting</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => insertMarkdown("# ")}>
-                  <Heading1 className="w-4 h-4 mr-2" /> Heading 1
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => insertMarkdown("## ")}>
-                  <Heading2 className="w-4 h-4 mr-2" /> Heading 2
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => insertMarkdown("### ")}>
-                  <Heading3 className="w-4 h-4 mr-2" /> Heading 3
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => insertMarkdown("- ")}>
-                  <List className="w-4 h-4 mr-2" /> Bullet List
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => insertMarkdown("1. ")}>
-                  <ListOrdered className="w-4 h-4 mr-2" /> Numbered List
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => insertMarkdown("> ")}>
-                  <Quote className="w-4 h-4 mr-2" /> Quote
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => insertMarkdown("[Link text](", "https://example.com)")}>
-                  <Link className="w-4 h-4 mr-2" /> Link
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => insertMarkdown("![Image description](", "https://example.com/image.jpg)")}>
-                  <Image className="w-4 h-4 mr-2" /> Image
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => insertMarkdown("```\n", "\n```")}>
-                  <Code className="w-4 h-4 mr-2" /> Code Block
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </>
-        )}
-        
-        <div className="flex-1" />
-        
-        {/* Focus Mode Button */}
-        {onOpenFocusMode && (
+          
+          {/* AI Button - Hidden on mobile (available in bottom nav) */}
           <Button
-            variant="ghost"
+            variant="default"
             size="sm"
-            onClick={onOpenFocusMode}
-            className="hidden md:flex shrink-0 text-muted-foreground hover:text-foreground"
-            title="Focus Mode"
+            onClick={handleAIClick}
+            className="hidden sm:flex bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shrink-0 h-8 px-2 lg:px-3"
           >
-            <Focus className="w-4 h-4 mr-2" />
-            Focus
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden lg:inline lg:ml-2">AI Assist</span>
           </Button>
-        )}
-        
-        {/* AI Button - Hidden on mobile (available in bottom nav) */}
-        <Button
-          variant="default"
-          size="sm"
-          onClick={handleAIClick}
-          className="hidden md:flex bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shrink-0"
-        >
-          <Sparkles className="w-4 h-4 mr-2" />
-          AI Assist
-        </Button>
+        </div>
       </div>
 
       {/* Title & Meta - Mobile optimized */}
