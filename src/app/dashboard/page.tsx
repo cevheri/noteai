@@ -36,6 +36,7 @@ import {
   PanelLeft,
   PanelRightClose,
   PanelRight,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -871,6 +872,19 @@ function DashboardContent() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
+                {/* Admin Panel Link - Only show for admin/super_admin */}
+                {((session.user as { role?: string }).role === "admin" || 
+                  (session.user as { role?: string }).role === "super_admin") && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin">
+                        <Shield className="w-4 h-4 mr-2" />
+                        Admin Panel
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem asChild>
                   <Link href="/pricing">
                     <Crown className="w-4 h-4 mr-2" />
