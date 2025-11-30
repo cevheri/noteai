@@ -14,25 +14,25 @@ import { toast } from "sonner";
 // Comprehensive error codes mapping for better-auth
 const errorCodes: Record<string, string> = {
   // Password related errors
-  PASSWORD_TOO_SHORT: "Şifre en az 8 karakter olmalıdır.",
-  PASSWORD_TOO_LONG: "Şifre çok uzun. Maksimum 128 karakter olmalıdır.",
-  INVALID_PASSWORD: "Geçersiz şifre formatı.",
-  WEAK_PASSWORD: "Şifre çok zayıf. Lütfen daha güçlü bir şifre seçin.",
+  PASSWORD_TOO_SHORT: "Password must be at least 8 characters.",
+  PASSWORD_TOO_LONG: "Password is too long. Maximum 128 characters allowed.",
+  INVALID_PASSWORD: "Invalid password format.",
+  WEAK_PASSWORD: "Password is too weak. Please choose a stronger password.",
   
   // User related errors
-  USER_ALREADY_EXISTS: "Bu e-posta adresi zaten kayıtlı. Lütfen giriş yapın.",
-  INVALID_EMAIL: "Geçersiz e-posta adresi formatı.",
-  INVALID_EMAIL_OR_PASSWORD: "Geçersiz e-posta veya şifre.",
+  USER_ALREADY_EXISTS: "This email is already registered. Please sign in.",
+  INVALID_EMAIL: "Invalid email address format.",
+  INVALID_EMAIL_OR_PASSWORD: "Invalid email or password.",
   
   // General errors
-  VALIDATION_ERROR: "Girilen bilgiler geçersiz. Lütfen kontrol edin.",
-  RATE_LIMIT_EXCEEDED: "Çok fazla deneme yaptınız. Lütfen biraz bekleyin.",
-  INTERNAL_SERVER_ERROR: "Sunucu hatası oluştu. Lütfen tekrar deneyin.",
+  VALIDATION_ERROR: "The information entered is invalid. Please check and try again.",
+  RATE_LIMIT_EXCEEDED: "Too many attempts. Please wait a moment and try again.",
+  INTERNAL_SERVER_ERROR: "Server error occurred. Please try again.",
   
   // Name related
-  INVALID_NAME: "Geçersiz isim formatı.",
-  NAME_TOO_SHORT: "İsim çok kısa.",
-  NAME_TOO_LONG: "İsim çok uzun.",
+  INVALID_NAME: "Invalid name format.",
+  NAME_TOO_SHORT: "Name is too short.",
+  NAME_TOO_LONG: "Name is too long.",
 };
 
 const getErrorMessage = (code: string, message?: string): string => {
@@ -46,16 +46,16 @@ const getErrorMessage = (code: string, message?: string): string => {
     const lowerMessage = message.toLowerCase();
     
     if (lowerMessage.includes("password") && lowerMessage.includes("short")) {
-      return "Şifre en az 8 karakter olmalıdır.";
+      return "Password must be at least 8 characters.";
     }
     if (lowerMessage.includes("password") && lowerMessage.includes("long")) {
-      return "Şifre çok uzun.";
+      return "Password is too long.";
     }
     if (lowerMessage.includes("email") && lowerMessage.includes("exist")) {
-      return "Bu e-posta adresi zaten kayıtlı.";
+      return "This email is already registered.";
     }
     if (lowerMessage.includes("email") && lowerMessage.includes("invalid")) {
-      return "Geçersiz e-posta adresi.";
+      return "Invalid email address.";
     }
     
     // Return the original message if it's somewhat readable
@@ -64,7 +64,7 @@ const getErrorMessage = (code: string, message?: string): string => {
     }
   }
   
-  return "Kayıt işlemi başarısız oldu. Lütfen tekrar deneyin.";
+  return "Registration failed. Please try again.";
 };
 
 // Password strength checker
@@ -94,27 +94,27 @@ export default function RegisterPage() {
   const validateForm = (): string | null => {
     // Name validation
     if (name.trim().length < 2) {
-      return "İsim en az 2 karakter olmalıdır.";
+      return "Name must be at least 2 characters.";
     }
     
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return "Geçerli bir e-posta adresi girin.";
+      return "Please enter a valid email address.";
     }
     
     // Password validation
     if (password.length < 8) {
-      return "Şifre en az 8 karakter olmalıdır.";
+      return "Password must be at least 8 characters.";
     }
     
     if (password.length > 128) {
-      return "Şifre en fazla 128 karakter olabilir.";
+      return "Password can be maximum 128 characters.";
     }
     
     // Confirm password validation
     if (password !== confirmPassword) {
-      return "Şifreler eşleşmiyor.";
+      return "Passwords do not match.";
     }
     
     return null;
@@ -146,10 +146,10 @@ export default function RegisterPage() {
         return;
       }
 
-      toast.success("Hesabınız başarıyla oluşturuldu!");
+      toast.success("Your account has been created successfully!");
       router.push("/login?registered=true");
     } catch (err) {
-      toast.error("Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.");
+      toast.error("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
   };
@@ -177,13 +177,13 @@ export default function RegisterPage() {
 
         <Card className="border-0 shadow-xl">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">Hesap Oluştur</CardTitle>
-            <CardDescription>AI destekli not uygulamasına hoş geldiniz</CardDescription>
+            <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+            <CardDescription>Welcome to the AI-powered note application</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Ad Soyad</Label>
+                <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
                   type="text"
@@ -198,11 +198,11 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">E-posta</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="ornek@email.com"
+                  placeholder="example@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -212,7 +212,7 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Şifre</Label>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -227,16 +227,16 @@ export default function RegisterPage() {
                 />
                 {showPasswordHints && password.length > 0 && (
                   <div className="p-3 bg-muted/50 rounded-lg space-y-1.5 mt-2">
-                    <PasswordHint passed={passwordStrength.minLength} text="En az 8 karakter" />
-                    <PasswordHint passed={passwordStrength.hasUppercase} text="En az 1 büyük harf (A-Z)" />
-                    <PasswordHint passed={passwordStrength.hasLowercase} text="En az 1 küçük harf (a-z)" />
-                    <PasswordHint passed={passwordStrength.hasNumber} text="En az 1 rakam (0-9)" />
+                    <PasswordHint passed={passwordStrength.minLength} text="At least 8 characters" />
+                    <PasswordHint passed={passwordStrength.hasUppercase} text="At least 1 uppercase letter (A-Z)" />
+                    <PasswordHint passed={passwordStrength.hasLowercase} text="At least 1 lowercase letter (a-z)" />
+                    <PasswordHint passed={passwordStrength.hasNumber} text="At least 1 number (0-9)" />
                   </div>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Şifre Tekrar</Label>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -250,7 +250,7 @@ export default function RegisterPage() {
                 {confirmPassword.length > 0 && password !== confirmPassword && (
                   <p className="text-xs text-destructive flex items-center gap-1 mt-1">
                     <AlertCircle className="w-3 h-3" />
-                    Şifreler eşleşmiyor
+                    Passwords do not match
                   </p>
                 )}
               </div>
@@ -259,19 +259,19 @@ export default function RegisterPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Hesap oluşturuluyor...
+                    Creating account...
                   </>
                 ) : (
-                  "Hesap Oluştur"
+                  "Create Account"
                 )}
               </Button>
             </form>
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">
-              Zaten hesabınız var mı?{" "}
+              Already have an account?{" "}
               <Link href="/login" className="text-primary font-medium hover:underline">
-                Giriş yapın
+                Sign in
               </Link>
             </p>
           </CardFooter>

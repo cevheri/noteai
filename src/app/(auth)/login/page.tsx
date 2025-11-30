@@ -37,23 +37,23 @@ function LoginForm() {
       if (error?.code) {
         console.error("Login error:", error);
         if (error.code === "INVALID_PASSWORD") {
-          toast.error("Şifre yanlış. Lütfen tekrar deneyin.");
+          toast.error("Incorrect password. Please try again.");
         } else if (error.code === "USER_NOT_FOUND") {
-          toast.error("Bu email ile kayıtlı hesap bulunamadı.");
+          toast.error("No account found with this email.");
         } else {
-          toast.error("Giriş başarısız. Lütfen email ve şifrenizi kontrol edin.");
+          toast.error("Login failed. Please check your email and password.");
         }
         setIsLoading(false);
         return;
       }
 
       if (data?.user) {
-        toast.success("Giriş başarılı!");
+        toast.success("Login successful!");
         window.location.replace("/dashboard");
       }
     } catch (err) {
       console.error("Login exception:", err);
-      toast.error("Bir hata oluştu. Lütfen tekrar deneyin.");
+      toast.error("An error occurred. Please try again.");
       setIsLoading(false);
     }
   };
