@@ -244,7 +244,14 @@ function DashboardContent() {
       });
       if (response.ok) {
         const data = await response.json();
-        setNotes(data.notes);
+        // Normalize tags from objects to IDs
+        const normalizedNotes = data.notes.map((note: Note & { tags?: Array<{ id: number } | number> }) => ({
+          ...note,
+          tags: Array.isArray(note.tags)
+            ? note.tags.map((t) => typeof t === 'object' ? t.id : t)
+            : [],
+        }));
+        setNotes(normalizedNotes);
       }
     } catch (error) {
       console.error("Failed to fetch notes:", error);
@@ -388,9 +395,18 @@ function DashboardContent() {
 
       if (response.ok) {
         const data = await response.json();
+        // Normalize tags from objects to IDs if needed
+        const normalizedNote = {
+          ...data.note,
+          tags: Array.isArray(data.note.tags)
+            ? data.note.tags.map((t: { id: number } | number) => 
+                typeof t === 'object' ? t.id : t
+              )
+            : [],
+        };
         // Update the note in place (optimistic update)
-        setNotes(prev => prev.map(n => n.id === data.note.id ? data.note : n));
-        setSelectedNote(data.note);
+        setNotes(prev => prev.map(n => n.id === normalizedNote.id ? normalizedNote : n));
+        setSelectedNote(normalizedNote);
       }
     } catch (error) {
       console.error("Failed to update note:", error);
