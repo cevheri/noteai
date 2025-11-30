@@ -12,11 +12,31 @@ export const auth = betterAuth({
 	emailAndPassword: {    
 		enabled: true
 	},
-	plugins: [bearer()]
+	plugins: [bearer()],
+	user: {
+		additionalFields: {
+			role: {
+				type: "string",
+				required: false,
+				defaultValue: "user",
+				input: false, // Don't allow setting role from client
+			}
+		}
+	}
 });
 
 // Session validation helper
 export async function getCurrentUser(request: NextRequest) {
   const session = await auth.api.getSession({ headers: await headers() });
   return session?.user || null;
+}
+
+// Helper to check if user is admin
+export function isAdmin(user: { role?: string } | null): boolean {
+  return user?.role === "admin" || user?.role === "super_admin";
+}
+
+// Helper to check if user is super admin
+export function isSuperAdmin(user: { role?: string } | null): boolean {
+  return user?.role === "super_admin";
 }
