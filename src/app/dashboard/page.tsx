@@ -30,6 +30,7 @@ import {
   Home,
   PenSquare,
   LayoutTemplate,
+  Command,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { NoteEditor } from "@/components/NoteEditor";
 import { AIAssistantModal } from "@/components/AIAssistantModal";
 import { TemplatesModal } from "@/components/TemplatesModal";
+import { CommandPalette } from "@/components/CommandPalette";
+import { FocusMode } from "@/components/FocusMode";
+import { QuickCapture } from "@/components/QuickCapture";
 import type { NoteTemplate } from "@/lib/templates";
 import { authClient, useSession } from "@/lib/auth-client";
 import { AutumnProvider, useCustomer } from "autumn-js/react";
@@ -232,6 +236,8 @@ function DashboardContent() {
   const [mobileView, setMobileView] = useState<MobileView>("list");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isFocusModeOpen, setIsFocusModeOpen] = useState(false);
   
   // Track if initial load happened
   const initialLoadDone = useRef(false);
@@ -242,6 +248,19 @@ function DashboardContent() {
       router.push("/login");
     }
   }, [session, isPending, router]);
+
+  // Global keyboard shortcut for Command Palette (Ctrl+K or Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Fetch notes - stable function that reads current state directly
   const fetchNotes = useCallback(async (filter: string, search: string) => {
@@ -419,6 +438,38 @@ function DashboardContent() {
     }
   };
 
+  // Quick capture handler
+  const handleQuickCapture = async (title: string, content: string) => {
+    // Check if user can create more notes
+    if (!customerLoading) {
+      const { data } = await check({ featureId: "notes", requiredBalance: 1 });
+      if (!data?.allowed) {
+        throw new Error("Note limit reached");
+      }
+    }
+
+    const response = await fetch("/api/db/notes", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        title,
+        content,
+        categoryId: null,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to create note");
+    }
+
+    const data = await response.json();
+    setNotes(prev => [data.note, ...prev]);
+    
+    // Track note creation
+    await track({ featureId: "notes", value: 1, idempotencyKey: `note-${data.note.id}` });
+    await refetchCustomer();
+  };
+
   const handleSelectTemplate = async (template: NoteTemplate) => {
     // Check if user can create more notes
     if (!customerLoading) {
@@ -594,6 +645,15 @@ function DashboardContent() {
     return "Notes";
   };
 
+  // Open Focus Mode
+  const openFocusMode = () => {
+    if (selectedNote) {
+      setIsFocusModeOpen(true);
+    } else {
+      toast.error("Please select a note first");
+    }
+  };
+
   // Show loading while checking auth
   if (isPending) {
     return (
@@ -661,6 +721,20 @@ function DashboardContent() {
             >
               <LayoutTemplate className="w-4 h-4 mr-2" />
               Templates
+            </Button>
+            {/* Command Palette Button */}
+            <Button
+              variant="ghost"
+              className="w-full justify-between text-muted-foreground hover:text-foreground"
+              onClick={() => setIsCommandPaletteOpen(true)}
+            >
+              <span className="flex items-center">
+                <Command className="w-4 h-4 mr-2" />
+                Command
+              </span>
+              <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px]">
+                ⌘K
+              </kbd>
             </Button>
           </div>
 
@@ -985,6 +1059,7 @@ function DashboardContent() {
                 onCategoryCreated={(newCategory) => {
                   setCategories(prev => [...prev, newCategory]);
                 }}
+                onOpenFocusMode={openFocusMode}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -1059,6 +1134,33 @@ function DashboardContent() {
         onClose={() => setIsTemplatesModalOpen(false)}
         onSelectTemplate={handleSelectTemplate}
       />
+
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        notes={notes}
+        categories={categories}
+        tags={tags}
+        onCreateNote={handleCreateNote}
+        onSelectNote={handleNoteSelect}
+        onSetFilter={setActiveFilter}
+        onOpenAI={() => openAIAssistant()}
+        onOpenTemplates={() => setIsTemplatesModalOpen(true)}
+        onOpenFocusMode={openFocusMode}
+        onLogout={handleLogout}
+      />
+
+      {/* Focus Mode */}
+      <FocusMode
+        isOpen={isFocusModeOpen}
+        onClose={() => setIsFocusModeOpen(false)}
+        note={selectedNote}
+        onSave={handleNoteUpdate}
+      />
+
+      {/* Quick Capture Widget */}
+      <QuickCapture onCreateNote={handleQuickCapture} />
     </div>
   );
 }

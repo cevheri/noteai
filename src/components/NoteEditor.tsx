@@ -32,6 +32,7 @@ import {
   Plus,
   MoreHorizontal,
   ChevronDown,
+  Focus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +72,7 @@ interface NoteEditorProps {
   onOpenAI: (selectedText?: string) => void;
   onTagCreated?: (tag: TagType) => void;
   onCategoryCreated?: (category: Category) => void;
+  onOpenFocusMode?: () => void;
 }
 
 // Helper function to get auth headers
@@ -98,6 +100,7 @@ export function NoteEditor({
   onOpenAI,
   onTagCreated,
   onCategoryCreated,
+  onOpenFocusMode,
 }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
@@ -600,6 +603,20 @@ export function NoteEditor({
         )}
         
         <div className="flex-1" />
+        
+        {/* Focus Mode Button */}
+        {onOpenFocusMode && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenFocusMode}
+            className="hidden md:flex shrink-0 text-muted-foreground hover:text-foreground"
+            title="Focus Mode"
+          >
+            <Focus className="w-4 h-4 mr-2" />
+            Focus
+          </Button>
+        )}
         
         {/* AI Button - Hidden on mobile (available in bottom nav) */}
         <Button
