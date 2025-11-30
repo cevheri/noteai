@@ -5,6 +5,20 @@ import { desc, like, or } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 
+// Safe date conversion helper
+function safeToISOString(dateValue: unknown): string | null {
+  if (!dateValue) return null;
+  try {
+    if (dateValue instanceof Date) {
+      return isNaN(dateValue.getTime()) ? null : dateValue.toISOString();
+    }
+    const date = new Date(dateValue as string | number);
+    return isNaN(date.getTime()) ? null : date.toISOString();
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication
@@ -72,14 +86,14 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset);
 
-    // Convert timestamps to ISO strings
+    // Convert timestamps to ISO strings safely
     const formattedUsers = users.map(u => ({
       id: u.id,
       name: u.name,
       email: u.email,
       role: u.role,
-      createdAt: u.createdAt ? (u.createdAt instanceof Date ? u.createdAt.toISOString() : new Date(u.createdAt).toISOString()) : new Date().toISOString(),
-      updatedAt: u.updatedAt ? (u.updatedAt instanceof Date ? u.updatedAt.toISOString() : new Date(u.updatedAt).toISOString()) : null,
+      createdAt: safeToISOString(u.createdAt) || new Date().toISOString(),
+      updatedAt: safeToISOString(u.updatedAt),
       image: u.image,
       emailVerified: u.emailVerified,
     }));
