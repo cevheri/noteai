@@ -551,8 +551,8 @@ export function NoteEditor({
             {/* Links & Images - visible on large+ */}
             <div className="hidden lg:flex items-center gap-0.5 shrink-0">
               <div className="w-px h-6 bg-border mx-1" />
-              <ToolbarButton icon={Link} onClick={() => insertMarkdown("[", "](url)")} title="Link" />
-              <ToolbarButton icon={Image} onClick={() => insertMarkdown("![alt](", ")")} title="Image" />
+              <ToolbarButton icon={Link} onClick={() => insertMarkdown("[Link text](", "https://example.com)")} title="Link" />
+              <ToolbarButton icon={Image} onClick={() => insertMarkdown("![Image description](", "https://example.com/image.jpg)")} title="Image" />
             </div>
             
             {/* More options dropdown for mobile */}
@@ -585,8 +585,11 @@ export function NoteEditor({
                   <Quote className="w-4 h-4 mr-2" /> Quote
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => insertMarkdown("[", "](url)")}>
+                <DropdownMenuItem onClick={() => insertMarkdown("[Link text](", "https://example.com)")}>
                   <Link className="w-4 h-4 mr-2" /> Link
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => insertMarkdown("![Image description](", "https://example.com/image.jpg)")}>
+                  <Image className="w-4 h-4 mr-2" /> Image
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => insertMarkdown("```\n", "\n```")}>
                   <Code className="w-4 h-4 mr-2" /> Code Block

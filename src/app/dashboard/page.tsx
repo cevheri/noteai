@@ -105,20 +105,38 @@ function PlanBadge() {
 function UsageIndicator() {
   const { customer, isLoading } = useCustomer();
   
-  if (isLoading || !customer?.features) {
+  if (isLoading) {
+    return (
+      <div className="px-3 py-2 border-t border-sidebar-border">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Usage
+        </p>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-1.5 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-1.5 w-full" />
+        </div>
+      </div>
+    );
+  }
+  
+  if (!customer?.features) {
     return null;
   }
   
   const notesFeature = customer.features["notes"];
   const aiFeature = customer.features["ai_requests"];
   
-  const notesUsage = notesFeature?.usage || 0;
+  // For notes (continuous_use): usage is total created, balance is remaining
+  const notesUsage = notesFeature?.usage ?? 0;
   const notesLimit = notesFeature?.included_usage;
-  const notesUnlimited = notesFeature?.unlimited || !notesLimit;
+  const notesUnlimited = notesFeature?.unlimited === true || notesLimit === undefined || notesLimit === null;
   
-  const aiUsage = aiFeature?.usage || 0;
+  // For AI requests (single_use): usage is current month's usage
+  const aiUsage = aiFeature?.usage ?? 0;
   const aiLimit = aiFeature?.included_usage;
-  const aiUnlimited = aiFeature?.unlimited || !aiLimit;
+  const aiUnlimited = aiFeature?.unlimited === true || aiLimit === undefined || aiLimit === null;
   
   return (
     <div className="px-3 py-2 border-t border-sidebar-border">
@@ -131,7 +149,11 @@ function UsageIndicator() {
           <div className="flex justify-between text-xs mb-1">
             <span className="text-muted-foreground">Notes</span>
             <span className="font-mono">
-              {notesUnlimited ? `${notesUsage} used` : `${notesUsage}/${notesLimit}`}
+              {notesUnlimited ? (
+                <span className="text-green-600 dark:text-green-400">∞ Unlimited</span>
+              ) : (
+                `${notesUsage} / ${notesLimit}`
+              )}
             </span>
           </div>
           {!notesUnlimited && notesLimit && (
@@ -155,7 +177,11 @@ function UsageIndicator() {
           <div className="flex justify-between text-xs mb-1">
             <span className="text-muted-foreground">AI Requests</span>
             <span className="font-mono">
-              {aiUnlimited ? `${aiUsage} used` : `${aiUsage}/${aiLimit}`}
+              {aiUnlimited ? (
+                <span className="text-green-600 dark:text-green-400">∞ Unlimited</span>
+              ) : (
+                `${aiUsage} / ${aiLimit}`
+              )}
             </span>
           </div>
           {!aiUnlimited && aiLimit && (
@@ -314,7 +340,11 @@ function DashboardContent() {
 
   // Debounced search
   useEffect(() => {
-    if (!searchQuery) return;
+    if (!searchQuery) {
+      // When search is cleared, reload notes with current filter
+      fetchNotes(activeFilter, "");
+      return;
+    }
     
     const timer = setTimeout(() => {
       fetchNotes(activeFilter, searchQuery);
